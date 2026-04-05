@@ -356,7 +356,15 @@ function setSyncBar(state, msg) {
 onValue(ref(db, 'history'), snap => {
   history = snap.val() || {};
   const td = history[todayKey()];
-  if (td) TASKS.forEach(t => checked[t] = (td.done||[]).includes(t));
+  if (td) {
+    TASKS.forEach(t => checked[t] = (td.done||[]).includes(t));
+    // fix score in DB if it doesn't match actual done count
+    const realScore = td.done ? td.done.length * 10 : 0;
+    if (td.score !== realScore) {
+      history[todayKey()].score = realScore;
+      set(ref(db,'history/'+todayKey()+'/score'), realScore);
+    }
+  }
   setSyncBar('synced', 'Synced across all devices');
   renderToday();
   const ap = document.querySelector('.page.active')?.id;
@@ -400,8 +408,8 @@ window.submitDay = async () => {
   if (isSubmitted()) return;
   setSyncBar('syncing','Saving...');
   try {
-    await set(ref(db,'history/'+todayKey()), {score:score(), done:TASKS.filter(t=>checked[t]), ts:Date.now()});
-    showToast(score()===100?'Perfect day. Well done.':'Submitted — '+score()+'/100 pts', score()===100?'gold':'green');
+    const doneTasks = TASKS.filter(t=>checked[t]); const finalScore = doneTasks.length * 10; await set(ref(db,'history/'+todayKey()), {score:finalScore, done:doneTasks, ts:Date.now()}); showToast(finalScore===100?'Perfect day. Well done.':'Submitted 2014 '+finalScore+'/100 pts', finalScore===100?'gold':'green');
+
   } catch { setSyncBar('error','Save failed — check internet'); showToast('Failed to save. Check connection.'); }
 };
 
